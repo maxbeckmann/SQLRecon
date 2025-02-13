@@ -81,6 +81,21 @@ namespace SQLRecon.Modules
             return Sql.Query(con, queries["get_module_status"]).Contains("1");
         }
 
+        internal static bool ImpersonateLinkedModuleStatus(SqlConnection con, string module, string linkedSqlServer, string impersonate, string[] linkedSqlServerChain = null)
+        {
+            // The queries dictionary contains all queries used by this module
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "get_module_status", string.Format(Query.GetModuleStatus, module) }
+            };
+
+            // Simple check to see if the supplied module (clr, ole, xp_cmdshell)
+            // is either a 1 (enabled) or 0 (disabled). Return the value.
+
+            queries = Format.ImpersonationAndLinkedDictionary(impersonate, linkedSqlServer, queries);
+            return Sql.Query(con, queries["get_module_status"]).Contains("1");
+        }
+
         /// <summary>
         /// The ModuleToggle method will enable advanced options, then
         /// enable modules via sp_configure. Logic exists for impersonation. Logic exists for rpc.
@@ -283,6 +298,59 @@ namespace SQLRecon.Modules
             catch (Exception ex)
             {
                 Print.Error($"Error enabling module {module} on chain: {ex.Message}", true);
+            }
+        }
+
+        internal static void ImpersonationAndLinkedModuleToggle(SqlConnection con, string module, string value, string impersonate, string linkedSqlServer, string sqlServer)
+        {
+            // The queries dictionary contains all queries used by this module
+            // The dictionary key name for RPC formatted queries must start with RPC
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "rpc_enable_advanced_configurations", Query.LinkedEnableAdvancedOptions },
+                { "rpc_toggle_module", string.Format(Query.LinkedToggleModule, module, value) },
+            };
+
+            // Format all queries so that they are compatible for execution on a linked SQL server.
+            queries = Format.ImpersonationAndLinkedDictionary(impersonate, linkedSqlServer, queries);
+
+            queries.Add("get_links", Format.ImpersonationQuery(impersonate, Query.GetLinkedSqlServers));
+
+            // Get a list of linked SQL servers.
+            string sqlOutput = Sql.CustomQuery(con, queries["get_links"]);
+
+            // Check to see if the linked SQL server exists.
+            if (!sqlOutput.ToLower().Contains(linkedSqlServer.ToLower()))
+            {
+                Print.Error($"Error {linkedSqlServer} does not exist.", true);
+                return;
+            }
+
+            // First check to see if rpc is enabled.
+            if (ModuleStatus(con, "rpc", null, linkedSqlServer) == false)
+            {
+                Print.Error($"You need to enable RPC for {linkedSqlServer} on {sqlServer} (enablerpc /rhost:{linkedSqlServer}", true);
+
+                Console.WriteLine(_moduleStatus(con, "rpc", null, linkedSqlServer));
+                // Go no further.
+                return;
+            }
+
+            Sql.CustomQuery(con, queries["rpc_enable_advanced_configurations"]);
+
+            Sql.CustomQuery(con, queries["rpc_toggle_module"]);
+
+            bool status = ImpersonateLinkedModuleStatus(con, module, linkedSqlServer, impersonate);
+
+            sqlOutput = _printModuleStatus(status, module, value, linkedSqlServer);
+
+            if (!sqlOutput.ToLower().Contains("not have permissions"))
+            {
+                Console.WriteLine(_linkedModuleStatus(con, module, linkedSqlServer));
+            }
+            else
+            {
+                Console.WriteLine(sqlOutput);
             }
         }
 

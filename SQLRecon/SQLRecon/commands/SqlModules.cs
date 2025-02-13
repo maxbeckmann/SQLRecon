@@ -218,6 +218,9 @@ namespace SQLRecon.Commands
                     // If the context is linked, then Var.LinkedSqlServersChain is null and logic is handled in the module.
                     Clr.LinkedOrChain(Var.Connect, Var.Arg1, Var.Arg2, Var.LinkedSqlServer, Var.SqlServer, Var.LinkedSqlServersChain);
                     break;
+                case "impersonationandlinked":
+                    Clr.ImpersonateAndLinked(Var.Connect, Var.Arg1, Var.Arg2, Var.Impersonate, Var.LinkedSqlServer, Var.SqlServer);
+                    break;
             }
         }
 
@@ -445,6 +448,9 @@ namespace SQLRecon.Commands
                     break;
                 case "chained":
                     Config.LinkedChainModuleToggle(Var.Connect, "clr enabled", "1", Var.LinkedSqlServersChain, Var.SqlServer);
+                    break;
+                case "impersonationandlinked":
+                    Config.ImpersonationAndLinkedModuleToggle(Var.Connect, "clr enabled", "1", Var.Impersonate, Var.LinkedSqlServer, Var.SqlServer);
                     break;
                 default:
                     Print.Error($"'{Var.Context}' is not a valid context.", true);
@@ -1315,6 +1321,25 @@ namespace SQLRecon.Commands
                     }
                     else
                     {
+                        Print.Error("Must supply a linked SQL server (/l:, /link:), " +
+                                        "location to DLL (/dll:) and function name (/function:).", true);
+                        // Go no further. Gracefully exit.
+                        return false;
+                    }
+                case "impersonationandlinked":
+                    if (Var.ParsedArguments.ContainsKey("dll") && !string.IsNullOrEmpty(Var.ParsedArguments["dll"]) &&
+                        Var.ParsedArguments.ContainsKey("function") && !string.IsNullOrEmpty(Var.ParsedArguments["function"]) &&
+                        Var.ParsedArguments.ContainsKey("link") && !string.IsNullOrEmpty(Var.ParsedArguments["link"]) &&
+                        Var.ParsedArguments.ContainsKey("iuser") && !string.IsNullOrEmpty(Var.ParsedArguments["iuser"]))
+                    {
+                        Var.Arg1 = Var.ParsedArguments["dll"];
+                        Var.Arg2 = Var.ParsedArguments["function"];
+                        return true;
+                    }
+                    else
+                    {
+                        Print.Error("Must supply a user to impersonate (/i:, /iuser:), " +
+                                        "location to DLL (/dll:) and function name (/function:).", true);
                         Print.Error("Must supply a linked SQL server (/l:, /link:), " +
                                         "location to DLL (/dll:) and function name (/function:).", true);
                         // Go no further. Gracefully exit.
