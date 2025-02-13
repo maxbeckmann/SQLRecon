@@ -231,5 +231,13 @@ namespace SQLRecon.Modules
             
             return Sql.Query(con, query).TrimStart('\n').Equals("1");
         }
+
+        internal static bool CheckImpersonateAndLinkedRoleMembership(SqlConnection con, string role, string impersonate, string linkedSqlServer)
+        {
+            // Format the query, so it is compatible for execution on a linked SQL server.
+            string query = Format.ImpersonationAndLinkedQuery(impersonate, linkedSqlServer, string.Format(Query.CheckRole, role));
+
+            return Sql.Query(con, query).TrimStart('\n').Equals("1");
+        }
     }
 }

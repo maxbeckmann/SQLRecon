@@ -189,7 +189,14 @@ namespace SQLRecon.Utilities
                 // If the /iuser flag is present, then the execution mode is impersonation
                 if (!string.IsNullOrEmpty(Var.Impersonate))
                 {
-                    _prepareSqlModuleForExecution("Impersonation", impersonateArgumentCount);
+                    if (!string.IsNullOrEmpty(Var.LinkedSqlServer))
+                    {
+                        _prepareSqlModuleForExecution("ImpersonationAndLinked", impersonateArgumentCount);
+                    }
+                    else
+                    {
+                        _prepareSqlModuleForExecution("Impersonation", impersonateArgumentCount);
+                    }
 
                 }
                 else if (!string.IsNullOrEmpty(Var.LinkedSqlServer))
@@ -315,15 +322,6 @@ namespace SQLRecon.Utilities
                 
                 // Set the first host in the Var.LinkedSqlServers array to the initial linked connection host.
                 Var.LinkedSqlServer = Var.LinkedSqlServers[0]; 
-            }
-            
-            // Create a limitation where users can not specify both the /link and /iuser flag
-            if (parsedArguments.ContainsKey("link") && parsedArguments.ContainsKey("iuser"))
-            {
-                Print.Error("The linked SQL server flag (/link, /l) and a user to impersonate " +
-                             "(/iuser, /i) was supplied. SQLRecon only supports one or the other.", true);
-                // Go no further.
-                return;
             }
             
             // Create a limitation where users can not specify both the /chain and /iuser flag
@@ -533,6 +531,21 @@ namespace SQLRecon.Utilities
                     Console.WriteLine();
                     
                     // Execute the module against a linked SQL server
+                    SqlModules.Execute();
+                }
+            }
+            else if (Var.Context == "impersonationandlinked")
+            {
+                for (int i = 0; i < Var.LinkedSqlServers.Length; i++)
+                {
+                    // Set the Var.LinkedSqlServer global variable to the current SQL server in the array 
+                    Var.LinkedSqlServer = Var.LinkedSqlServers[i];
+
+                    Console.WriteLine();
+                    Print.Status($"({i + 1}/{Var.LinkedSqlServers.Length}) Executing the '{Var.Module}' module on {Var.LinkedSqlServers[i]} as '{Var.Impersonate}' via {Var.SqlServer}", true);
+                    Console.WriteLine();
+
+                    // Execute the module against the current SQL server
                     SqlModules.Execute();
                 }
             }

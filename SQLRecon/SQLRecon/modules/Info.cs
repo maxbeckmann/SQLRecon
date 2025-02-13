@@ -131,7 +131,59 @@ namespace SQLRecon.Modules
             Console.WriteLine();
             Console.WriteLine(Print.ConvertDictionaryToMarkdownTable(results, "Object", "Value"));
         }
-        
+
+        internal static void ImpersonateAndLinked(string impersonate, string linkedSqlServer)
+        {
+            // The queries dictionary contains all queries used by this module
+            // The dictionary key name for RPC formatted queries must start with RPC
+            Dictionary<string, string> queries = new Dictionary<string, string>
+            {
+                { "ComputerName", Query.GetComputerName },
+                { "DomainName", Query.GetDomainName },
+                { "ServicePid", Query.GetServicePid },
+                { "rpc_OsMachineType", Query.GetOsMachineType },
+                { "rpc_OsVersion", Query.GetOsVersion },
+                { "SqlServerServiceName", Query.GetSqlServerServiceName },
+                { "rpc_SqlServiceAccountName", Query.GetSqlServiceAccountName },
+                { "rpc_AuthenticationMode", Query.GetAuthenticationMode },
+                { "rpc_ForcedEncryption", Query.GetForcedEncryption },
+                { "Clustered", Query.GetClustered },
+                { "SqlVersionNumber", Query.GetSqlVersionNumber },
+                { "SqlMajorVersionNumber", Query.GetSqlMajorVersionNumber },
+                { "SqlServerEdition", Query.GetSqlServerEdition },
+                { "SqlServerServicePack", Query.GetSqlServerServicePack },
+                { "OsArchitecture", Query.GetOsArchitecture },
+                { "OsVersionNumber", Query.GetOsVersionNumber },
+                { "CurrentLogon", Query.GetCurrentLogon },
+                { "ActiveSessions", Query.GetActiveSessions }
+            };
+
+            // Check to see if the user is a sysadmin. Consider linked SQL srver chains.
+            bool sysadmin = Roles.CheckImpersonateAndLinkedRoleMembership(Var.Connect, "sysadmin", impersonate, linkedSqlServer);
+
+            // Remove certain queries from the dictionary if the user is not a sysadmin
+            if (sysadmin == false)
+            {
+                queries.Remove("rpc_OsMachineType");
+                queries.Remove("rpc_OsVersion");
+                queries.Remove("rpc_SqlServiceAccountName");
+                queries.Remove("rpc_AuthenticationMode");
+                queries.Remove("rpc_ForcedEncryption");
+            }
+
+            Dictionary<string, string> results = new Dictionary<string, string>();
+
+            queries = Format.ImpersonationAndLinkedDictionary(impersonate, linkedSqlServer, queries);
+
+            foreach (KeyValuePair<string, string> entry in queries)
+            {
+                results.Add(entry.Key, Sql.Query(Var.Connect, queries[entry.Key]));
+            }
+
+            Console.WriteLine();
+            Console.WriteLine(Print.ConvertDictionaryToMarkdownTable(results, "Object", "Value"));
+        }
+
         /// <summary>
         /// The GetInfoViaUdpRequest method will send a UDP request to
         /// port 1434 on the remote SQL server along with the magic byte value

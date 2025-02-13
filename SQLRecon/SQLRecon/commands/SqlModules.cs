@@ -613,6 +613,9 @@ namespace SQLRecon.Commands
                     // If the context is linked, then Var.LinkedSqlServersChain is null and logic is handled in the module.
                     Info.LinkedOrChain(Var.LinkedSqlServer, Var.LinkedSqlServersChain);
                     break;
+                case "impersonationandlinked":
+                    Info.ImpersonateAndLinked(Var.Impersonate, Var.LinkedSqlServer);
+                    break;
                 default:
                     Print.Error($"'{Var.Context}' is not a valid context.", true);
                     break;
@@ -1094,6 +1097,31 @@ namespace SQLRecon.Commands
                         {
                             // Go no further
                             Print.Error($"{Var.SqlServer} does not have a linked connection to {Var.LinkedSqlServer}.", true);
+                            return false;
+                        }
+                    case "impersonationandlinked":
+                        // Check to see if the supplied user can be impersonated.
+                        if (Roles.CheckImpersonation(Var.Connect, Var.Impersonate) || Roles.CheckRoleMembership(Var.Connect, "sysadmin"))
+                        {
+                            // Obtain a list linked SQL servers
+                            string otherSqlOutput = Sql.CustomQuery(Var.Connect, Query.GetLinkedSqlServers);
+
+                            // Check to see if the linked SQL server exists
+                            if (otherSqlOutput.ToLower().Contains(Var.LinkedSqlServer.ToLower()))
+                            {
+                                return true;
+                            }
+                            else
+                            {
+                                // Go no further
+                                Print.Error($"{Var.SqlServer} does not have a linked connection to {Var.LinkedSqlServer}.", true);
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            // Go no further
+                            Print.Error($"'{Var.Impersonate}' can not be impersonated on {Var.SqlServer}.", true);
                             return false;
                         }
                     default:

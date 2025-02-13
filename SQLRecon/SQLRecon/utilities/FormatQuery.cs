@@ -92,6 +92,20 @@ namespace SQLRecon.Utilities
             return queries;
         }
 
+        internal static Dictionary<string, string> ImpersonationAndLinkedDictionary(string impersonate, string linkedSqlServer, Dictionary<string, string> dict)
+        {
+            Dictionary<string, string> queries = new Dictionary<string, string>(dict.Count);
+
+            foreach (KeyValuePair<string, string> entry in dict)
+            {
+                queries[entry.Key] = ImpersonationAndLinkedQuery(impersonate, linkedSqlServer, entry.Value);
+            }
+
+            dict.Clear();
+
+            return queries;
+        }
+
         /// <summary>
         /// The ImpersonationQuery method adds the EXECUTE AS LOGIN statement along with
         /// the user to impersonate in front of every standard SQL query
@@ -122,6 +136,23 @@ namespace SQLRecon.Utilities
             return (rpc == false)
                 ? "SELECT * FROM OPENQUERY(\"" + linkedSqlServer + "\", '" + query + "')"
                 : "EXECUTE ('" + query + "') AT [" + linkedSqlServer + "];";
+        }
+
+        /// <summary>
+        /// The ImpersonationAndLinkedQuery combines LinkedQuery and ImpersonationQuery to allow the use of links as an impersonated user. 
+        /// </summary>
+        /// <param name="impersonate"></param>
+        /// <param name="linkedSqlServer"></param>
+        /// <param name="query"></param>
+        /// <param name="rpc"></param>
+        /// <returns></returns>
+        internal static string ImpersonationAndLinkedQuery(string impersonate, string linkedSqlServer, string query)
+        {
+            // Impersonation works across linked queries when enclosing the remote query in EXECUTE context. Background: https://learn.microsoft.com/en-us/answers/questions/169770/query-to-a-server-linked-through-an-execute-as
+            // By setting LinkedQuery rpc = true, this is achieved while maintaining comptability with implemented queries. 
+            query = LinkedQuery(linkedSqlServer, query, true);
+            query = ImpersonationQuery(impersonate, query);
+            return query;
         }
 
         /// <summary>
